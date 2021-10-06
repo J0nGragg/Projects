@@ -1,0 +1,168 @@
+---
+title: "Behavioral Data Science Week 3 - Exploritory Data Analysis"
+author: "Jonathan Gragg"
+date: "9/12/2021"
+output: pdf_document
+---
+
+loading in relevant Libraries
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(corrplot)
+library(stringr)
+```
+
+loading in the data
+
+```{r}
+data <- read.csv("survey_results_public.csv")
+glimpse(data)
+```
+
+There is too many columns in this data set so I'm going to slim it down to 15 that seem more important than other columns
+
+```{r}
+df <- data %>% drop_na(Salary) %>% 
+  select(Gender,Race,Salary,CompanySize,Country,YearsProgram,CareerSatisfaction,JobSatisfaction,HoursPerWeek,FormalEducation,EducationTypes,ProblemSolving,JobSecurity,VersionControl,
+         LearningNewTech)
+glimpse(df)
+```
+
+Taking a look at distribution of years of programing
+
+```{r}
+ggplot(df,
+       aes(YearsProgram)
+       ) + geom_bar()+ scale_x_discrete(guide = guide_axis(angle = 25))
+```
+
+looks like a vast majority of respondents have over 20 years of experience. Now I would like to see the distribution of salaries in the data set
+
+```{r}
+ggplot(df,
+       aes(Salary)
+       ) + geom_histogram()
+```
+Appears I may have a lot of people who entered 0 for their salary. These could be students or people choosing to abstain from answering.
+I would like to see distributions of different demographic data.
+
+```{r}
+df %>% group_by(Gender) %>% summarise(count = n()) %>% arrange(-count)
+```
+Looks like there is 20 different gender values but the data set is disproportionately male. These statistics will be biased towards men after reviewing this factor and should be considered when evaluating results.
+
+```{r}
+as.data.frame(table(unlist(str_split(df$EducationTypes,'; '))))
+```
+Wanting to understand how the respondents were educated. I need to extract values from strings since the column held multiple values. The data is more than double counted but gives an idea of how the respondents learned coding. A majority have self taught themselves at least once for job related skills.
+
+```{r}
+df %>% group_by(CompanySize) %>% summarise(count = n()) %>% arrange(-count)
+```
+Appears we have a good distribution of company sizes ranging from less than 10 to over 10,000
+
+```{r}
+ggplot(df,
+       aes(JobSecurity)
+       ) + geom_bar()
+```
+there is a lot of respondents who chose not to answer how important Job security is to their career. Of those that did respond, majority says they do agree job security is important.
+
+```{r}
+ggplot(df,
+       aes(ProblemSolving)
+       ) + geom_bar()
+```
+Problem solving is extremely important for your career according to the respondents based on the graph above.
+
+```{r}
+ggplot(df,
+       aes(LearningNewTech)
+       ) + geom_bar()
+```
+Learning new tech has very similar distribution to Problem solving
+
+```{r}
+df %>% group_by(FormalEducation) %>% summarise(count = n()) %>% arrange(-count)
+```
+Even though most of the respondents stated that they are self taught I'm seeing that almost all respondents actually have at least some college education. So this data set is heavily favored for college educated respondents.
+
+```{r}
+df %>% group_by(VersionControl) %>% summarise(count = n()) %>% arrange(-count)
+```
+
+Majority of respondents use Github for version control which is not surprising.
+
+```{r}
+ggplot(df,
+       aes(FormalEducation, Salary)
+       ) + geom_boxplot() + scale_x_discrete(guide = guide_axis(angle = 25))
+```
+This one surprised me. It looks like a Masters Degree does not have higher salary ranges than bachelors degrees. Doctoral degrees do seem to have an impact however.
+
+```{r}
+ggplot(df,
+       aes(FormalEducation, JobSatisfaction)
+       ) + geom_boxplot() + scale_x_discrete(guide = guide_axis(angle = 25))
+```
+Seems college graduates have the lowest range of job satisfaction amongst respondents.
+
+```{r}
+ggplot(df,
+       aes(JobSatisfaction, Salary)
+       ) + geom_point()
+```
+
+Salary seems to be positively correlated with job satisfaction
+
+I'm going to change some of the variables to numerical values to do some better analysis. First I'll change in range of agree to disagree variables to a 1-5 scale. Then I'm going to change years of programing experiencing to a min year numerical value.
+
+```{r}
+df <- df %>% mutate(JobSecurity = case_when(df$JobSecurity == 'Strongly disagree' ~ 1,
+                              df$JobSecurity == 'Disagree' ~ 2,
+                              df$JobSecurity == 'Somewhat agree' ~ 3,
+                              df$JobSecurity == 'Agree' ~ 4,
+                              df$JobSecurity == 'Strongly agree' ~ 5),
+                    ProblemSolving = case_when(df$ProblemSolving == 'Strongly disagree' ~ 1,
+                              df$ProblemSolving == 'Disagree' ~ 2,
+                              df$ProblemSolving == 'Somewhat agree' ~ 3,
+                              df$ProblemSolving == 'Agree' ~ 4,
+                              df$ProblemSolving == 'Strongly agree' ~ 5),
+                    LearningNewTech = case_when(df$LearningNewTech == 'Strongly disagree' ~ 1,
+                              df$LearningNewTech == 'Disagree' ~ 2,
+                              df$LearningNewTech == 'Somewhat agree' ~ 3,
+                              df$LearningNewTech == 'Agree' ~ 4,
+                              df$LearningNewTech == 'Strongly agree' ~ 5))
+
+df$MinYears <- as.integer(str_extract(df$YearsProgram,'(\\d)+'))
+
+df <- df %>% filter(Salary > 0)
+
+glimpse(df)
+```
+
+Now that I have a number of numerical columns I can create a corplot to see any correlations.
+
+```{r}
+core <- df %>% select(Salary,CareerSatisfaction,JobSatisfaction,HoursPerWeek,JobSecurity,ProblemSolving,LearningNewTech,MinYears) %>% drop_na()
+
+cor(core) %>%
+  corrplot(.)
+```
+
+It looks like there is strong correlation between Job and Career satisfaction. A strong correlation between Years of experience and salary. A moderate correlation between Learning New technologies and problem solving.
+
+```{r}
+ggplot(df,
+       aes(Salary,MinYears)
+       ) +geom_point()
+```
+
+```{r}
+ggplot(df,
+       aes(Salary, fill=as.factor(MinYears))
+       ) + geom_histogram()
+```
+When looking at salary based on years of experience I can see that almost all respondents making over 150K have at least 20 years of experience.

@@ -1,0 +1,113 @@
+---
+title: "Behavioral Data Science Week 4 - Factor Analysis"
+author: "Jonathan Gragg"
+date: "9/19/2021"
+output: pdf_document
+---
+
+## Summary
+
+The initial goal was to determine whether or not 17 variables in the employee survey could be averaged into one variable. I first glimpsed the data and turned all of the factors into a numerical data value in order to evaluate. My initial choice was to run the factors through a scree plot and see what that tells me. It led to the conclustion that there needed to be a least 3 factors. That would contradict the initial hypothesis that these variables could become 1 factor so my initial conclusion was that these variables could not be averaged into one variable.
+
+After that I fit a model to both an Orthogonal analysis and a Oblique analysis. In an orthogonal you are testing whether or not the factors should remain independent while in an oblique you are testing whether or not the factors should become 1 factor. In both findings I was able to see that there was some variables that would point to factor 2 and factor 1. This confirmed my conclusion that these variables could not be averaged into 1 score.
+
+## Analysis
+
+loading in relevant Libraries
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(stringr)
+library(psych)
+```
+
+loading in the data
+
+```{r}
+data <- read.csv("survey_results_public.csv")
+
+#selecting the columns that we will be working with
+df <- data %>% select(ProblemSolving:ChangeWorld) %>% drop_na()
+
+#converting all the of the column values into a numerical rating scale
+df[df=='Strongly disagree'] <- 1
+df[df=='Disagree'] <- 2
+df[df=='Somewhat agree'] <- 3
+df[df=='Agree'] <- 4
+df[df=='Strongly agree'] <- 5
+
+columns = 1:17
+
+for (i in columns){
+  df[,i] = as.integer(df[,i])
+}
+
+glimpse(df)
+```
+
+```{r}
+#Is a FA analysis appropriate?
+
+#if the p value is small then FA analysis is appropriate
+cortest.bartlett(df)
+
+#if overall MSA is over a certain threshold then yes
+KMO(df)
+```
+
+```{r}
+scree(df)
+```
+
+```{r,warning=FALSE}
+#Number of factors?
+fa.parallel(df)
+```
+
+Based on the parallel analysis scree plot I would say that there should be 3 factors and not 1. That would lead me to believe that these metrics cannot be averaged into one.
+
+```{r}
+#orthogonal rotate
+fa2 <- fa(df, nfactors = 3, rotate = "varimax", covar = FALSE)
+print(fa2$loadings, cutoff = 0.001, digits = 3)
+```
+
+```{r}
+fa2$communalities
+```
+
+```{r}
+fa.diagram(fa2)
+```
+
+```{r}
+#oblique rotate
+fa3 <- fa(df, nfactors = 3, rotate = "promax")
+print(fa3$loadings, cutoff = 0.001, digits = 3)
+```
+
+because there are variables that are higher in MR2 than in MR1 we can conclude that there needs to be more than 1 factor.
+
+```{r}
+#look at correlation between latent factors
+fa3$Phi
+```
+
+There is very little correlation between the factors which would lead me to believe that my original conclusion was correct that these variables should not be averaged into 1.
+
+```{r}
+fa.diagram(fa3)
+```
+
+```{r}
+##PC vs. FA
+pc1 <- principal(df, nfactors = 3, rotate = "none", covar = FALSE)
+class(pc1)
+fa.diagram(pc1)
+```
+
+```{r}
+alpha(df)
+```
+
