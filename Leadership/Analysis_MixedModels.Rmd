@@ -1,0 +1,100 @@
+---
+title: "Behavioral Data Sciece Week 6 - Mixed Models"
+author: "Jonathan Gragg"
+date: "10/3/2021"
+output: pdf_document
+---
+
+## Summary
+
+In my findings the use of the first 12 questions isn't extremely effect. Adding in a mixed model to randomize the intercept based on LeaderID it gets slightly more effective. The most effective model is a random slope model using the average score and leader.
+
+## Analysis
+
+Loading in packages
+
+```{r, warning=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(haven)
+library(lme4)
+library(lmerTest)
+```
+
+loading in the data
+
+```{r}
+data <- read_dta('BDS-Leadership-DataSet.dta')
+#selecting relevant columns
+data <- data %>% select(leaderID:lvi12,effect)
+#creating score based on responses to 1-12
+data$score <- rowMeans(data[,3:14],na.rm = T)
+glimpse(data)
+```
+
+```{r}
+data %>% 
+  select(effect, score, leaderID, OrganizationID) %>% 
+  cor() %>% 
+  ggcorrplot::ggcorrplot()
+```
+
+```{r, warning=FALSE}
+slim = lm(effect ~ score, data = data)
+
+ggplot(data, aes(score, effect)) +
+  geom_point() + 
+  geom_smooth(method = "lm") +
+  theme_minimal()
+```
+
+```{r}
+#Ordinary least squares model
+mod_ols <- lm(effect~score, data = data)
+summary(mod_ols)
+```
+
+```{r}
+plot(data$score,data$effect)
+abline(mod_ols)
+```
+
+```{r}
+mod_null <- lmer(effect~ (1|leaderID),data = data)
+summary(mod_null)
+```
+
+```{r}
+#calculating the ICC
+0.3782/(.3782+1.3425)
+```
+
+```{r}
+#mixed model
+mod_mixed <- lmer(effect ~ score + (1|leaderID), data = data)
+summary(mod_mixed)
+```
+
+```{r}
+#random slope model
+mod_rs <- lmer(effect ~ score + (score|leaderID), data = data)
+summary(mod_rs)
+```
+
+```{r}
+anova(mod_mixed,mod_rs)
+```
+
+```{r}
+#3 Level model
+mod_3L <- lmer(effect ~ score + (1|OrganizationID/leaderID), data = data)
+summary(mod_3L)
+```
+
+```{r}
+ICC_Lead <- (0.3377+0.0807)/(0.3377+0.0807+1.3425)
+ICC_Org <- (0.0807)/(0.3377+0.0807+1.3425)
+ICC_Lead
+ICC_Org
+```
+

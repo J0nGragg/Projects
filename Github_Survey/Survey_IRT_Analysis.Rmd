@@ -1,0 +1,100 @@
+---
+title: "Behavioral Data Science Week 5 - IRT and GRM"
+author: "Jonathan Gragg"
+date: "9/26/2021"
+output: pdf_document
+---
+
+## Summary
+
+Based on the IRT model I would say that the distribution looks very similar for 1 IRT model across all questions. The GRM model shows a little disparity however and looks to be 2-3 different distribution shapes. That would lead me to confirm what I discovered last week where I suggested there needed to be 3 factors for these variables.
+
+## Analysis
+
+loading in relevant Libraries
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(stringr)
+library(psych)
+library(GGally)
+library(mirt)
+library(ltm)
+library(lavaan)
+```
+
+loading in the data
+
+```{r}
+data <- read.csv("survey_results_public.csv")
+
+#selecting the columns that we will be working with
+df <- data %>% dplyr::select(ProblemSolving:ChangeWorld) %>% drop_na()
+
+#converting all the of the column values into a numerical rating scale
+df[df=='Strongly disagree'] <- 1
+df[df=='Disagree'] <- 2
+df[df=='Somewhat agree'] <- 3
+df[df=='Agree'] <- 4
+df[df=='Strongly agree'] <- 5
+
+columns = 1:17
+
+for (i in columns){
+  df[,i] = as.integer(df[,i])
+}
+
+glimpse(df)
+```
+
+```{r}
+#Try 1-factor
+fa1 <- fa(df, nfactors = 1, rotate = "none")
+print(fa1$loadings, cutoff = 0.001, digits = 3)
+```
+
+```{r}
+fit1PL <- mirt(df, model = 1, itemtype = "Rasch")
+plot(fit1PL, type = 'trace', facet_items = FALSE)
+```
+
+```{r}
+confirm_mod1 <- "Endurance =~ ProblemSolving + BuildingThings + LearningNewTech + BoringDetails + JobSecurity + DiversityImportant +
+AnnoyingUI + FriendsDevelopers + RightWrongWay + UnderstandComputers + SeriousWork + InvestTimeTools + WorkPayCare + 
+KinshipDevelopers + ChallengeMyself + CompetePeers + ChangeWorld"
+fit1 <- lavaan::cfa(confirm_mod1, data = df,std.lv = TRUE)
+summary(fit1, fit.measures = T,standardized = T)
+```
+
+```{r}
+facScores = fscores(fit1PL)
+
+head(facScores)
+```
+
+```{r}
+summary(facScores)
+```
+
+```{r}
+faScores = psych::fa(df, 1, rotate = "promax")$scores
+
+summary(faScores)
+```
+
+```{r}
+cor(faScores, facScores)
+```
+
+```{r}
+grmMod = mirt(df, model = 1, itemtype = "graded")
+
+coef(grmMod, simplify = TRUE, IRTpars = TRUE)
+```
+
+```{r}
+plot(grmMod, type = 'trace', 
+     facet_items = TRUE, main = "GRM")
+```
+
