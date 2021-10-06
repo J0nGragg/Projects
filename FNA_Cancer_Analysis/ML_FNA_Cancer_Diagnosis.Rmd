@@ -1,0 +1,775 @@
+---
+title: "Final Project"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+```{r}
+setwd("~/NotreDame/IntroDataScience/Final")
+```
+
+```{r}
+FNA <- read.csv("FNA_cancer.csv", header = T)
+```
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(rpart)
+library(partykit)
+library(randomForest)
+library(class)
+library(caret)
+```
+
+
+```{r}
+glimpse(FNA)
+```
+
+
+
+Make diagnosis a factor and remove last column 'X'
+```{r}
+FNA$diagnosis <- as.factor(FNA$diagnosis)
+FNA <- FNA %>% dplyr::select(-X)
+glimpse(FNA)
+```
+Check to see difference between benign versus malignant diagnosis.
+```{r}
+table(FNA$diagnosis)
+```
+
+
+## EDA
+
+Comparison of radius_mean
+```{r}
+ggplot(FNA, aes(x=radius_mean, fill=diagnosis)) + 
+    geom_boxplot()+ coord_flip()
+```
+
+Histogram of radius_mean
+```{r}
+ggplot(FNA, aes(x=radius_mean, fill=diagnosis)) + 
+    geom_histogram()
+```
+
+
+
+Comparison of texture_mean
+```{r}
+ggplot(FNA, aes(x=texture_mean, fill=diagnosis)) + 
+    geom_boxplot()+ coord_flip()
+```
+Histogram of texture_mean
+```{r}
+ggplot(FNA, aes(x=texture_mean, fill=diagnosis)) + 
+    geom_histogram()
+```
+Comparison of perimeter_mean
+```{r}
+ggplot(FNA, aes(x=perimeter_mean, fill=diagnosis)) + 
+    geom_boxplot()+ coord_flip()
+```
+Histogram of perimeter_mean
+```{r}
+ggplot(FNA, aes(x=perimeter_mean, fill=diagnosis)) + 
+    geom_histogram()
+```
+Comparison of area_mean
+```{r}
+ggplot(FNA, aes(x=area_mean, fill=diagnosis)) + 
+    geom_boxplot()+ coord_flip()
+```
+Histogram of area_mean
+```{r}
+ggplot(FNA, aes(x=area_mean, fill=diagnosis)) + 
+    geom_histogram()
+```
+Scatter plot of radius_mean versus texture_mean
+```{r}
+radius_texture <- ggplot(FNA, aes(x=area_mean, y=texture_mean, color=factor(diagnosis, labels = c("Benign", "Malignant"))))+ 
+    geom_point(alpha = 0.3)+
+  ggtitle("Radius Mean vs Texture Mean")+ labs(color = "Diagnosis")
+radius_texture
+```
+Save image
+```{r}
+ggsave(filename = "radius_v_texture.jpg", width = 8, height = 5) 
+```
+
+
+Comparison of smoothness_mean
+```{r}
+ggplot(FNA, aes(x=smoothness_mean, fill=diagnosis)) + 
+    geom_boxplot()+ coord_flip()+
+  scale_fill_discrete(name = "Diagnosis", labels = c("Benign", "Malignant"))
+```
+
+Histogram of smoothness_mean
+```{r}
+ggplot(FNA, aes(x=smoothness_mean, fill=diagnosis)) + 
+    geom_histogram()
+```
+
+Comparison of compactness_mean
+```{r}
+ggplot(FNA, aes(x=compactness_mean, fill=diagnosis)) + 
+    geom_boxplot()+ coord_flip()
+```
+
+Histogram of compactness_mean
+```{r}
+ggplot(FNA, aes(x=compactness_mean, fill=diagnosis)) + 
+    geom_histogram()
+```
+
+Comparison of Smoothness and Compactness
+
+```{r}
+smooth_compact <- ggplot(FNA, aes(x=smoothness_mean, y=compactness_mean, color=factor(diagnosis, labels = c("Benign", "Malignant"))))+ 
+    geom_point(alpha = 0.3)+
+  ggtitle("Smoothness Mean vs Compactness Mean")+ labs(color = "Diagnosis")
+smooth_compact
+```
+Save image
+```{r}
+ggsave(plot = smooth_compact, filename = "smoothness_v_compactness.jpg", width = 8, height = 5) 
+```
+
+Comparison of concavity_mean  
+```{r}
+ggplot(FNA, aes(x=concavity_mean  , fill=diagnosis)) + 
+    geom_boxplot()+ coord_flip()
+```
+
+Histogram of concavity_mean  
+```{r}
+ggplot(FNA, aes(x=concavity_mean  , fill=diagnosis)) + 
+    geom_histogram()
+```
+
+Comparison of concave.points_mean 
+```{r}
+ggplot(FNA, aes(x=concave.points_mean   , fill=diagnosis)) + 
+    geom_boxplot()+ coord_flip()
+```
+
+Histogram of concave.points_mean   
+```{r}
+ggplot(FNA, aes(x=concave.points_mean   , fill=diagnosis)) + 
+    geom_histogram()
+```
+
+Comparison of symmetry_mean 
+```{r}
+ggplot(FNA, aes(x=symmetry_mean    , fill=diagnosis)) + 
+    geom_boxplot()+ coord_flip()
+```
+
+Histogram of symmetry_mean   
+```{r}
+ggplot(FNA, aes(x=symmetry_mean    , fill=diagnosis)) + 
+    geom_histogram()
+```
+
+Comparison of Concavity and Symmetry
+
+```{r}
+concavity_symmetry <- ggplot(FNA, aes(x=concavity_mean, y=symmetry_mean, color=factor(diagnosis, labels = c("Benign", "Malignant"))))+ 
+    geom_point(alpha = 0.3)+
+  ggtitle("Concavity Mean vs Symmetry Mean")+ labs(color = "Diagnosis")
+concavity_symmetry
+```
+
+Save image
+```{r}
+ggsave(plot = concavity_symmetry, filename = "concavity_symmetry.jpg", width = 8, height = 5) 
+```
+
+
+
+Comparison of fractal_dimension_mean 
+```{r}
+ggplot(FNA, aes(x=fractal_dimension_mean     , fill=diagnosis)) + 
+    geom_boxplot()+ coord_flip()
+```
+
+Histogram of fractal_dimension_mean    
+```{r}
+ggplot(FNA, aes(x=fractal_dimension_mean    , fill=diagnosis)) + 
+    geom_histogram()
+```
+
+## split the data into test and training data
+
+
+The `id` will be removed from the data set since it is not a relevant predictor
+```{r}
+FNA_trim <- FNA %>% dplyr::select(-id)
+```
+
+
+Seed is set to 1842.  The number of rows are counted and assigned to the variable `n`.  The test index is created by randomly sampling 20% of the number of rows.  The test index is then used to subset the data to create the test set and the inverse of the test index is used to subset the data to create the training data.    
+```{r}
+set.seed(1842)
+n <- nrow(FNA_trim)
+test_idx <- sample.int(n, size=(n*.2))
+test_FNA <- FNA_trim[test_idx,]
+train_FNA <- FNA_trim[-test_idx,]
+glimpse(train_FNA)
+```
+
+## Decision Tree
+
+```{r}
+library(corrplot)
+```
+
+ 
+
+
+```{r}
+#Looking at some corr plots
+#Given that the data is a set of metrics viewed in three statistical perspectives, mean, se, and worst, I believe it may be valuable to subdivide the data by these three characteristics for some analysis
+
+ 
+
+
+#Load and manipulate data for corrplots
+FNAplots <- read.csv("FNA_cancer.csv", header = T)
+
+ 
+
+#Converting diagnosis response from factor to binary to allow for corr calc
+FNAplots$diagnosis <- ifelse(FNAplots$diagnosis=="M",1,0)
+
+ 
+
+#Breaking out the predictor columns into 3 subcategories and adding the diagnosis column
+FNAmeans <- dplyr::select(FNAplots,contains("mean")) %>% mutate(diagnosis = FNAplots$diagnosis) %>% relocate(diagnosis) 
+
+ 
+
+FNAse <- dplyr::select(FNAplots,contains("_se")) %>% mutate(diagnosis = FNAplots$diagnosis) %>% relocate(diagnosis)
+
+ 
+
+FNAworst <- dplyr::select(FNAplots,contains("worst")) %>% mutate(diagnosis = FNAplots$diagnosis) %>% relocate(diagnosis)
+
+ 
+
+#create correlation matricies
+
+ 
+
+fnaCorPlot <- function(df){
+  
+  cor_fna <- cor(df)
+  #plot cor matrix
+  corrplot(cor_fna,  method="circle", tl.pos="lt", type="upper",        
+  tl.col="black", tl.cex=1, tl.srt=50,
+           addCoef.col="white", addCoefasPercent = TRUE,
+           p.mat = 1-abs(cor_fna), sig.level=0.50, insig = "blank")
+  }
+
+ 
+
+lapply(list(FNAmeans,FNAse,FNAworst),fnaCorPlot)
+
+ 
+
+
+```
+
+ 
+
+
+```{r}
+#Using some linear model analysis on the subset data to look for predictors
+
+ 
+
+
+modFNAmeans <- lm(diagnosis~.,data=FNAmeans)
+modFNAse <- lm(diagnosis~.,data=FNAse)
+modFNAworst <- lm(diagnosis~.,data=FNAworst)
+
+ 
+
+
+summary(modFNAmeans)
+summary(modFNAse)
+summary(modFNAworst)
+```
+
+ 
+
+Of the subset groups, the "worst" subset has the best R2 at 74.
+All three groups have a significant F test p-value.
+
+ 
+
+
+```{r}
+
+library(rms) 
+
+ 
+
+#Checking each subset with fastbw
+
+ 
+
+fbw <- function(df){
+  
+  ols.mod <- ols(diagnosis ~ ., data = df)
+  #Perform p-value based selection using fastbw() function
+  fastbw(ols.mod, rule = "p", sls = 0.05)
+  
+  
+}
+
+ 
+
+lapply(list(FNAmeans,FNAse,FNAworst),fbw)
+
+ 
+
+
+```
+
+ 
+
+ 
+
+```{r}
+
+library(MASS) 
+
+
+#Evaluate automated selection across 3 subcategories with AIC - running against trained lm's
+
+ 
+
+aic <- function (mod){
+
+ 
+
+  mod_result <- stepAIC(mod,trace=FALSE)
+  return (mod_result$anova)
+  
+}
+
+ 
+
+ 
+
+
+lapply(list(modFNAmeans,modFNAse,modFNAworst),aic)
+
+ 
+
+```
+
+ 
+
+ 
+
+
+```{r}
+
+ 
+
+#Re-load, format, and scrub data, then re-subset for dt analysis (returning response to factors). This is redundant, but I'm doing it to ensure no modifications to the data from the plot analysis have persisted
+
+ 
+
+FNAdt <- read.csv("FNA_cancer.csv", header = T)
+
+ 
+
+FNAdt$diagnosis <- as.factor(FNAdt$diagnosis)
+FNAdt <- FNAdt %>% dplyr::select(-X)
+
+ 
+
+FNA_trim <- FNAdt %>% dplyr::select(-id)
+
+ 
+
+
+#Breaking out the predictor columns into 3 subcategories and adding the diagnosis column
+FNAmeans <- dplyr::select(FNA_trim,contains("mean")) %>% mutate(diagnosis = FNA_trim$diagnosis) %>% relocate(diagnosis) 
+
+ 
+
+FNAse <- dplyr::select(FNA_trim,contains("_se")) %>% mutate(diagnosis = FNA_trim$diagnosis) %>% relocate(diagnosis)
+
+ 
+
+FNAworst <- dplyr::select(FNA_trim,contains("worst")) %>% mutate(diagnosis = FNA_trim$diagnosis) %>% relocate(diagnosis)
+
+ 
+
+ 
+
+ 
+
+#Create splits of full dataset using caret
+set.seed(1842)
+test_index <- createDataPartition(FNA_trim$diagnosis,p=0.2,list = F)
+train_FNA <- FNA_trim[-test_index,]
+test_FNA <- FNA_trim[test_index,]
+
+ 
+
+#Create splits of subsets using caret
+set.seed(1842)
+n <- nrow(FNAmeans)
+test_idx <- createDataPartition(FNAmeans$diagnosis,p=0.2,list = F)
+test_FNAmeans <- FNAmeans[test_idx,]
+train_FNAmeans <- FNAmeans[-test_idx,]
+test_FNAse <- FNAse[test_idx,]
+train_FNAse <- FNAse[-test_idx,]
+test_FNAworst <- FNAworst[test_idx,]
+train_FNAworst <- FNAworst[-test_idx,]
+
+ 
+
+
+```
+
+ 
+
+```{r}
+#Look at the subset data with some optimized dt's, using caret and cross validation
+library(caret)
+ 
+
+
+#means
+fnameans_caret <- caret::train(diagnosis~., data=train_FNAmeans, method="rpart", trControl = trainControl(method = "cv"))
+
+ 
+
+#se
+fnase_caret <- caret::train(diagnosis~., data=train_FNAse, method="rpart", trControl = trainControl(method = "cv"))
+
+ 
+
+#worst
+fnaworst_caret <- caret::train(diagnosis~., data=train_FNAworst, method="rpart", trControl = trainControl(method = "cv"))
+
+ 
+
+
+#fit a tree - using caret and full dataset
+fnaFullTree_caret <- caret::train(diagnosis~., data=train_FNA, method="rpart", trControl = trainControl(method = "cv"))
+
+ 
+
+ 
+
+
+#All summaries
+plot(as.party(fnaFullTree_caret$finalModel),main="Full Set")
+plot(as.party(fnameans_caret$finalModel),main="Means")
+plot(as.party(fnase_caret$finalModel),main="SE")
+plot(as.party(fnaworst_caret$finalModel),main="Worst")
+
+ 
+
+ 
+
+ 
+
+```
+The "Worst" and "Full" models optimize to the same nodes. Both settle on area_worst and concave.points_worst. 
+
+ 
+
+```{r}
+#Evaluate each of the dt's 
+fnaFullTree_caret
+fnameans_caret
+fnase_caret
+fnaworst_caret
+
+ 
+
+
+```
+
+ 
+
+The full model and worst model optimized to the same nodes. I'll look at confusion matrices for both.
+
+ 
+
+```{r}
+
+ 
+
+
+#FULL
+print("####FULL MODEL CONFUSION MATRIX####")
+#Predict on test data
+rpartEval_pred1 <- predict(fnaFullTree_caret$finalModel,newdata = test_FNA,type="class")
+#make the confusion matrix
+confusionMatrix(rpartEval_pred1, test_FNA$diagnosis)
+
+ 
+
+
+#Worst
+print("####Worst MODEL CONFUSION MATRIX####")
+#Predict on test data
+rpartEval_pred2 <- predict(fnaworst_caret$finalModel,newdata = test_FNAworst,type="class")
+#make the confusion matrix
+confusionMatrix(rpartEval_pred2, test_FNAworst$diagnosis)
+
+ 
+
+#se
+print("####se MODEL CONFUSION MATRIX####")
+#Predict on test data
+rpartEval_pred3 <- predict(fnase_caret$finalModel,newdata = test_FNAse,type="class")
+#make the confusion matrix
+confusionMatrix(rpartEval_pred3, test_FNAse$diagnosis)
+
+ 
+
+
+#means
+print("####means MODEL CONFUSION MATRIX####")
+#Predict on test data
+rpartEval_pred4 <- predict(fnameans_caret$finalModel,newdata = test_FNAmeans,type="class")
+#make the confusion matrix
+confusionMatrix(rpartEval_pred4, test_FNAmeans$diagnosis)
+
+ 
+
+ 
+
+ 
+
+
+```
+
+ 
+
+Unsurprisingly, the full and worst models are effectively identical, given how caret optimized them. They are also the most powerful decision tree models, yielding 93% accuracy and 96% sensitivity.
+
+ 
+
+ 
+
+```{r}
+library(neuralnet)
+```
+
+
+#ROC Plot of the decision trees
+#Calculate predictions using probabilities
+fnafull_pred_prob <- predict(fnaFullTree_caret$finalModel,newdata = test_FNA,type="prob")
+fnameans_pred_prob <- predict(fnameans_caret$finalModel,newdata = test_FNAmeans,type="prob")
+fnase_pred_prob <- predict(fnase_caret$finalModel,newdata = test_FNAse,type="prob")
+
+ 
+
+#Provide ROC with predictions and truth for analysis
+roc_fnafullpreds <- prediction(fnafull_pred_prob[,2],test_FNA$diagnosis)
+roc_fnameanspreds <- prediction(fnameans_pred_prob[,2],test_FNAmeans$diagnosis)
+roc_fnasepreds <- prediction(fnase_pred_prob[,2],test_FNAse$diagnosis)
+
+ 
+
+#Calculate true and false positive rates from ROC analysis
+roc_fnafullPerf1 <- performance(roc_fnafullpreds,"tpr","fpr")
+roc_fnameansPerf1 <- performance(roc_fnameanspreds,"tpr","fpr")
+roc_fnasePerf1 <- performance(roc_fnasepreds,"tpr","fpr")
+
+ 
+
+#Plot all three models using this ROC analysis, along with the a/b line as reference
+plot(roc_fnafullPerf1, col="blue")
+plot(roc_fnameansPerf1,add=T, col="red")
+plot(roc_fnasePerf1,add=T, col="orange")
+abline(a=0,b=1)
+
+ 
+
+legend("bottomright", legend=c("FULL/Worst", "Means", "SE", "Random Chance"),
+       col=c("blue", "red", "orange", "black"), lty=1:1)
+
+ 
+The Full tree which reduces to area_worst and concave.points_worst nodes is the best decision tree model evaluated. It minimizes FPR and maximizes TPR.
+
+# Create a bagging prediction.
+```{r}
+bagging <- randomForest(diagnosis ~., data=train_FNA, mtry=30, ntree=500)
+bagging
+```
+Predict the diagnosis using bagging and the test data, and then view results in a confusion matrix.
+```{r}
+bagging_prediction <- predict(bagging, newdata=test_FNA[-1], "class")
+confusionMatrix(bagging_prediction, test_FNA$diagnosis, positive="M")
+```
+
+Create the random forest.
+```{r}
+rf4 <- randomForest(diagnosis ~., data=train_FNA, mtry=4, ntree=1000)
+rf4
+```
+Predict the diagnosis using random forest and the test data, and then view results in a confusion matrix.
+```{r}
+rf_prediction <- predict(rf4, newdata=test_FNA[-1], "class")
+confusionMatrix(rf_prediction, test_FNA$diagnosis, positive="M")
+```
+```{r}
+library(rminer)
+```
+```{r}
+plot(rf4)
+```
+```{r}
+importance(rf4) %>%
+  as.data.frame() %>%
+  rownames_to_column() %>%
+  arrange(desc(MeanDecreaseGini))
+```
+```{r, fig.height=7}
+varImpPlot(rf4, sort = T, main = "Random Forest Variable Importance")
+```
+
+```{r}
+rf <- randomForest(diagnosis ~., data=train_FNA, mtry=11, ntree=1000)
+rf
+```
+
+Predict the diagnosis using random forest and the test data, and then view results in a confusion matrix.
+
+```{r}
+rf_prediction <- predict(rf, newdata=test_FNA[-1], "class")
+confusionMatrix(rf_prediction, test_FNA$diagnosis, positive="M")
+```
+```{r}
+library(MASS)
+library(rms)
+```
+
+```{r}
+#checking to see what the most influential predictors are
+ols.fna <- ols(diagnosis ~., data=train_FNA)
+#Perform p-value based selection using fastbw() function
+fastbw(ols.fna, rule = "p", sls = 0.05)
+```
+```{r}
+set.seed(1842)
+FNA_knn <- FNA_trim
+FNA_knn$diagnosis <- as.factor(ifelse(FNA_knn$diagnosis=="M",1,0))
+n <- nrow(FNA_knn)
+test_idx <- sample.int(n, size=(n*.2))
+test_FNA_knn <- FNA_knn[test_idx,]
+train_FNA_knn <- FNA_knn[-test_idx,]
+glimpse(train_FNA_knn)
+```
+ 
+```{r}
+library(caret)
+ 
+rescale_x <- function(x) {
+  (x-min(x))/(max(x)-min(x))
+}
+pred_knn<-knn(sapply(train_FNA_knn %>% dplyr::select(-diagnosis), rescale_x),sapply(test_FNA_knn %>% dplyr::select(-diagnosis), rescale_x)
+ , train_FNA_knn$diagnosis)
+confusionMatrix(pred_knn, test_FNA_knn$diagnosis)
+```
+```{r}
+library(caret)
+```
+ 
+ 
+```{r}
+#Using Caret more
+train_proc_knn <- preProcess(x=train_FNA_knn %>% dplyr::select(-diagnosis), method=c("center", "scale"))
+test_proc_knn <- preProcess(x=test_FNA_knn %>% dplyr::select(-diagnosis), method=c("center", "scale"))
+ 
+set.seed(1842)
+ctrl <- trainControl(method="repeatedcv",repeats = 3) #,classProbs=TRUE,summaryFunction = twoClassSummary)
+knnFit <- train(diagnosis ~ ., data = train_FNA_knn, method = "knn", trControl = ctrl, preProcess = c("center","scale"), tuneLength = 20)
+knnFit
+plot(knnFit)
+```
+ 
+```{r}
+knnPredict <- predict(knnFit,newdata = test_FNA_knn)
+#Get the confusion matrix to see accuracy value and other parameter values
+confusionMatrix(knnPredict, test_FNA_knn$diagnosis)
+```
+ 
+```{r}
+require(ROCR)
+knnPredict <- predict(knnFit,newdata = test_FNA_knn , type="prob")
+#Provide ROC with predictions and truth for analysis
+roc_knn_pred <- prediction(knnPredict[,2],test_FNA_knn$diagnosis)
+ 
+
+#Calculate true and false positive rates from ROC analysis
+roc_knn_perf <- performance(roc_knn_pred,"tpr","fpr")
+ 
+#Plot all three models using this ROC analysis, along with the a/b line as reference
+plot(roc_knn_perf, col="blue") >
+abline(a=0,b=1)
+```
+
+
+```{r}
+library(ROCR)
+predrf <- predict(rf4, newdata =  test_FNA, "prob")
+predbag <- predict(bagging, newdata =  test_FNA, "prob")
+knnPredict <- predict(knnFit,newdata = test_FNA_knn , type="prob")
+
+roc_predsrf <- prediction(predrf[,2],test_FNA$diagnosis)
+roc_predsbag <- prediction(predbag[,2],test_FNA$diagnosis)
+roc_knn_pred <- prediction(knnPredict[,2],test_FNA_knn$diagnosis)
+
+roc_perfrf <- performance(roc_predsrf,"tnr","fnr")
+roc_perfbag <- performance(roc_predsbag,"tnr","fnr")
+roc_knn_perf <- performance(roc_knn_pred,"tnr","fnr")
+
+plot(roc_perfrf, col=4, lwd = 2)
+plot(roc_perfbag, col=2, lwd = 2, add = T)
+plot(roc_knn_perf, col=3, add = T)
+abline(a=0,b=1)
+legend(x="bottomright",
+       legend = c("Random Forest","Bagging","KNN"),
+       col = c(4,2,3),
+       lwd = 2)
+```
+```{r}
+predrf <- predict(rf4, newdata =  test_FNA, "prob")
+predbag <- predict(bagging, newdata =  test_FNA, "prob")
+knnPredict <- predict(knnFit,newdata = test_FNA_knn , type="prob")
+
+roc_predsrf <- prediction(predrf[,2],test_FNA$diagnosis)
+roc_predsbag <- prediction(predbag[,2],test_FNA$diagnosis)
+roc_knn_pred <- prediction(knnPredict[,2],test_FNA_knn$diagnosis)
+
+roc_perfrf <- performance(roc_predsrf,"tpr","fpr")
+roc_perfbag <- performance(roc_predsbag,"tpr","fpr")
+roc_knn_perf <- performance(roc_knn_pred,"tpr","fpr")
+
+plot(roc_perfrf, col=4, lwd = 2)
+plot(roc_perfbag, col=2, lwd = 2, add = T)
+plot(roc_knn_perf, col=3, add = T)
+abline(a=0,b=1)
+legend(x="bottomright",
+       legend = c("Random Forest","Bagging","KNN"),
+       col = c(4,2,3),
+       lwd = 2)
+```
+
