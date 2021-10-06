@@ -1,0 +1,292 @@
+---
+title: "Final Project Code - Jonathan Gragg"
+output: pdf_document
+---
+
+# Part 1 - Exploritory Data Analysis
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+```
+```{r}
+candc <- read.csv("/Users/jgragg/Documents/NotreDame/LinearModels/FinalProject/CommViolPredUnnormalizedData.txt", sep = ",", header = F)
+names(candc) <- c("communityname", "State", "countyCode", "communityCode", "fold", "pop", "perHoush", "pctBlack", "pctWhite", "pctAsian", "pctHisp", "pct12-21",
+"pct12-29", "pct16-24", "pct65up", "persUrban", "pctUrban", "medIncome", "pctWwage", "pctWfarm", "pctWdiv", "pctWsocsec", "pctPubAsst", "pctRetire", "medFamIncome",
+"perCapInc", "whitePerCap", "blackPerCap", "NAperCap", "asianPerCap", "otherPerCap", "hispPerCap", "persPoverty", "pctPoverty", "pctLowEdu", "pctNotHSgrad",
+"pctCollGrad", "pctUnemploy", "pctEmploy", "pctEmployMfg", "pctEmployProfServ", "pctOccupManu", "pctOccupMgmt", "pctMaleDivorc", "pctMaleNevMar", "pctFemDivorc",
+"pctTtlDivorc", "persPerFam", "pct2Par", "pctKids2Par", "pctKids-4w2Par", "pct12-17w2Par", "pctWorkMom-6", "pctWorkMom-18", "kidsBornNevrMarr", "pctKidsBornNevrMarr",
+"numForeignBorn", "pctFgnImmig-3", "pctFgnImmig-5", "pctFgnImmig-8", "pctFgnImmig-10", "pctImmig-3", "pctImmig-5", "pctImmig-8", "pctImmig-10", "pctSpeakOnlyEng", "pctNotSpeakEng", "pctLargHousFam", "pctLargHous", "persPerOccupHous", "persPerOwnOccup", "persPerRenterOccup", "pctPersOwnOccup", "pctPopDenseHous", "pctSmallHousUnits",
+"medNumBedrm", "houseVacant", "pctHousOccup", "pctHousOwnerOccup", "pctVacantBoarded", "pctVacant6up", "medYrHousBuilt", "pctHousWOphone", "pctHousWOplumb", "ownHousLowQ", "ownHousMed", "ownHousUperQ", "ownHousQrange", "rentLowQ", "rentMed", "rentUpperQ", "rentQrange", "medGrossRent", "medRentpctHousInc", "medOwnCostpct",
+"medOwnCostPctWO", "persEmergShelt", "persHomeless", "pctForeignBorn", "pctBornStateResid", "pctSameHouse-5", "pctSameCounty-5", "pctSameState-5", "numPolice",
+"policePerPop", "policeField", "policeFieldPerPop", "policeCalls", "policCallPerPop", "policCallPerOffic", "policePerPop2", "racialMatch", "pctPolicWhite",
+"pctPolicBlack", "pctPolicHisp", "pctPolicAsian", "pctPolicMinority", "officDrugUnits", "numDiffDrugsSeiz", "policAveOT", "landArea", "popDensity", "pctUsePubTrans",
+"policCarsAvail", "policOperBudget","pctPolicPatrol", "gangUnit", "pctOfficDrugUnit", "policBudgetPerPop", "murders", "murdPerPop", "rapes", "rapesPerPop", "robberies", "robbbPerPop", "assaults", "assaultPerPop", "burglaries", "burglPerPop", "larcenies", "larcPerPop", "autoTheft", "autoTheftPerPop", "arsons", "arsonsPerPop","violentPerPop",
+"nonViolPerPop")
+
+data <- candc %>% dplyr::select(violentPerPop,medIncome, pctCollGrad, persHomeless, pctNotSpeakEng, pctTtlDivorc, pctPoverty, medGrossRent, communityname)
+data$violentPerPop <- as.numeric(data$violentPerPop)
+data <-  data %>% na.omit()
+attach(data)
+glimpse(data)
+```
+```{r}
+ggplot(data,
+       aes(x = medIncome, y = violentPerPop)
+       ) + geom_point()
+```
+In this scatter plot we see the relation between median household income and number of violent crime per 100,000 people for each community. 
+As median income for a community goes up violent crime rates tend to go down.
+
+```{r}
+ggplot(data,
+       aes(x = pctCollGrad, y = violentPerPop)
+       ) + geom_point()
+```
+In this scatter plot we see the relation between percent of college graduates and number of violent crime per 100,000 people for each community.
+As the percent of college graduates for a community goes up violent crime rates tend to go down.
+
+```{r}
+ggplot(data,
+       aes(x = pctTtlDivorc, y = violentPerPop)
+       ) + geom_point()
+```
+In this scatter plot we see the relation between percent of total population that is divorced and number of violent crime per 100,000 people for each community.
+As divorce rate goes up for a community goes up violent crime rates tend to go up as well.
+
+```{r}
+ggplot(data,
+       aes(x = pctPoverty, y = violentPerPop)
+       ) + geom_point()
+```
+In this scatter plot we see the relation between percent of total population under the poverty line and number of violent crime per 100,000 people for each community.As the poverty rate goes up for a community goes up violent crime rates tend to go up as well.
+
+```{r, fig.height=10, fig.width=10}
+library(corrplot)
+B <- data %>% dplyr::select(medIncome,pctCollGrad,pctTtlDivorc,pctPoverty)
+D <- cor(B)
+names(D) <- c("medIncome","pctCollGrad","pctTtlDivorc","pctPoverty")
+corrplot(D, method = "number")
+```
+
+
+# Part 2 - Initial Model Creation
+
+```{r}
+options(scipen = 999)
+mod.part2 <- lm(violentPerPop~medIncome+pctCollGrad+pctTtlDivorc+pctPoverty)
+summary(mod.part2)
+```
+## Interpretation
+
+The four predictors chosen were Median Income, percent of college graduates, percent of people divorced, and percent living in poverty. The summary of the model shows that all 4 predictors have a p value of almost 0 and do have statistical significance. This is later confirmed by the F Statistic p value of almost 0 confirming that at least one of the predictors is statistically significant. The value for R^2 is not very high showing that only about 41% are accurately explained by the predictors. The median residual of -56.4 shows that our model often under estimates violent crime per 100,000.
+
+# Part 3 - Variable Selection using OLS and AIC
+
+```{r}
+library(rms)
+library(MASS)
+
+```
+
+```{r}
+ols.data <- ols(violentPerPop ~ medIncome+pctCollGrad+pctTtlDivorc+pctPoverty, data = data)
+#Perform p-value based selection using fastbw() function
+fastbw(ols.data, rule = "p", sls = 0.05)
+
+```
+```{r}
+aic.violent <- stepAIC(mod.part2)
+aic.violent$anova # display results 
+```
+## Summary
+
+None of the 4 predictors I chose in step 2 were removed by fastbw() or the stepAIC process. This will lead me to keep all 4 predictors in my model and shows my initial assumption that these factors have a significant impact on number of violent crimes per 100,000 people was correct. I will choose to move forward with the model that I chose in Part 2.
+
+# Part 4 - Testing for Model Assumptions
+
+```{r}
+library(lmtest)
+```
+
+```{r}
+#Durbin-Watson test to see if residuals are correlated
+dwtest(mod.part2)
+```
+With a p value of 0.559 we fail to reject the null hypothesis and see no evidence or serial correlation.
+
+```{r}
+#using shapiro wilks test to see if residuals are normally distributed
+shapiro.test(mod.part2$residuals)
+```
+Because the shapiro test has a p value of almost 0 we would reject the hypothesis that the residuals are normal.
+
+```{r}
+# seeing the model has constant error variance
+plot(mod.part2$fitted.values,mod.part2$residuals, ylab = "Residuals", xlab = "Fitted Values")
+```
+The graph above shows that there could be heteroskedasticity, because as the fitted values increase the spread of the residuals is increasing but the center line stays about the same.
+
+```{r}
+# Running a Q-Q plot to test to see if residuals are normally distributed
+qqnorm(mod.part2$residuals)
+```
+The graph about shows that their is either our data might be right skewed and is not normally distributed.
+
+```{r}
+# testing to see if residuals are normally distributed 
+n <- length(residuals(mod.part2))
+plot(tail(residuals(mod.part2),n-1) ~ head(residuals(mod.part2),n-1), xlab=
+expression(hat(epsilon)[i]),ylab=expression(hat(epsilon)[i+1]))
+abline(h=0,v=0,col=grey(0.75))
+```
+The graph about gives us the assumption that the errors are not correlated.
+
+# Part 5 - Outliers
+
+```{r}
+#attempting to identify outliers using rstandard()
+rstandard <- data.frame(data$communityname, rstandard(mod.part2))
+rstandard <- rstandard %>% arrange(desc(rstandard.mod.part2.))
+head(rstandard)
+```
+```{r}
+#summary output for rstandard()
+summary(rstandard$rstandard.mod.part2.)
+```
+```{r}
+#visualizing potential outliers using histogram
+ggplot(rstandard,
+       aes(rstandard.mod.part2.)
+       ) + geom_histogram(bins = 40)
+```
+```{r}
+#visualizing potential outliers using boxplot
+ggplot(rstandard,
+       aes(rstandard.mod.part2.)
+       ) + geom_boxplot()
+```
+```{r}
+#creating a matrix for r standard and weights of each community
+rmod <- rlm(violentPerPop~medIncome+pctCollGrad+pctTtlDivorc+pctPoverty, data = data)
+weight_df <- data.frame(community = data$communityname, resid = rstandard(mod.part2), weight = rmod$w)
+
+part5df <- weight_df %>% arrange(desc(resid))
+head(part5df)
+```
+
+## Starndard Residual Analysis
+
+There does appear to be a handful of outliers in this data. Of 1,994 data points it looks like ~40 data points are outliers according to the fitted model. We will have to use cooks to see the influence but as of right now does not seem necessary to eliminate this small portion of the data set.
+
+```{r}
+#Find threshold for Cooks distance, 50th percentile of F distribution with (p+1) and n-(p+1) numerator and denominator DF
+n2 <- dim(model.matrix(mod.part2))[1]
+p2 <- dim(model.matrix(mod.part2))[2]
+num.df <- p2
+den.df <- n2-p2
+F.thresh.final <- qf(0.5,num.df,den.df)
+F.thresh.final
+```
+
+```{r}
+#summary output for cooks formula
+cook_df <- cooks.distance(mod.part2)
+summary(cook_df)
+```
+
+```{r}
+#visualization of distribution of cooks values
+ggplot(mapping = aes(cook_df)) + geom_histogram(bins = 100)
+```
+
+## Cook's Analysis
+
+We can conclude that no data points have an influential effect of the model since the largest value for cooks is 0.036 and the F threshold is 0.871.
+
+
+# Part 6 - Using Box-Cos to correct heterskedasticity
+
+```{r}
+#creating linear model to detect violentPerPop
+mod.bc <- lm(violentPerPop+1~medIncome+pctCollGrad+pctTtlDivorc+pctPoverty)
+
+# creating the Box Cox plot
+bc <- boxcox(mod.bc, plotit=T)
+```
+
+```{r}
+lambda <- bc$x[which.max(bc$y)]
+lambda
+```
+```{r}
+#transforming the response variable using log(y)
+#creating linear model to detect violentPerPop
+mod.bc <- lm(log(violentPerPop+1)~medIncome+pctCollGrad+pctTtlDivorc+pctPoverty)
+summary(mod.bc)
+```
+```{r}
+#transforming the response variable using lambda
+#creating linear model to detect violentPerPop
+mod.bc <- lm((violentPerPop+1)^lambda~medIncome+pctCollGrad+pctTtlDivorc+pctPoverty)
+summary(mod.bc)
+```
+
+## Exlpanation
+
+Since the Box-Cox plot did not come back with a easy to understand solution for transforming the data, I chose to use the lambda value to get the most accurate transformation for the data set.
+
+
+# Part 7 - Making Predictions for the Model
+
+```{r}
+#building a table for the predictors with their estimates and p values
+coef <- mod.part2$coefficients
+pvalue <- summary(mod.part2)$coefficients[,4]
+part7.1 <- as.data.frame(cbind(coef,pvalue)[-1,])
+part7.1 <- tibble::rownames_to_column(part7.1,"Predictor")
+names(part7.1) <- c("Predictor","Parameter Estimate", "p-value")
+part7.1
+```
+
+```{r}
+#extracting the R Squared of the model
+summary(mod.bc)$r.squared
+```
+
+```{r}
+#95% Confidence Interval for predictor pctTtlDivorc
+92.027413-1.96*4.298489
+92.027413+1.96*4.298489
+```
+
+```{r}
+#95% confidence interval for a prediction
+predict(mod.part2,
+        new=data.frame(medIncome=median(data$medIncome),pctCollGrad=median(data$pctCollGrad),pctTtlDivorc=median(data$pctTtlDivorc),pctPoverty=median(data$pctPoverty)),
+        interval="confidence")
+
+```
+
+```{r}
+#95% confidence interval for a particular observation
+predict(mod.part2,
+        new=data.frame(medIncome=median(data$medIncome),pctCollGrad=median(data$pctCollGrad),pctTtlDivorc=median(data$pctTtlDivorc),pctPoverty=median(data$pctPoverty)),
+        interval="prediction")
+```
+# Final Model
+
+```{r}
+mod.bc <- lm((violentPerPop+1)^lambda~medIncome+pctCollGrad+pctTtlDivorc+pctPoverty)
+summary(mod.bc)
+```
+
+```{r}
+coef <- mod.bc$coefficients
+pvalue <- summary(mod.bc)$coefficients[,4]
+part7.2 <- as.data.frame(cbind(coef,pvalue)[-1,])
+part7.2 <- tibble::rownames_to_column(part7.2,"Predictor")
+names(part7.2) <- c("Predictor","Parameter Estimate", "p-value")
+part7.2
+```
+
