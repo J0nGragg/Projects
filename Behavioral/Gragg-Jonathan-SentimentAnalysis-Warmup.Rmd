@@ -1,0 +1,101 @@
+---
+title: "Text Evaluation - Warmup"
+author: "Jonathan Gragg"
+date: "11/17/2021"
+output: pdf_document
+---
+
+# Summary
+
+In this analysis we will be taking words people have used to describe their managers to then help determine whether they are a bad manager or a good manager. We'll give each manager a sentiment score to see which ones have predominantly negative sentiment scores vs predominantly positive sentiment scores.
+
+# Sentiment Analysis
+
+```{r}
+# Loading in all required packages
+library(tidyverse)
+library(tm)
+library(tidytext)
+library(wordcloud2)
+library(sentimentr) 
+library(lexicon)
+library(magrittr)
+```
+
+```{r}
+# loading in data
+load("week13.RData")
+glimpse(week13)
+```
+
+## Tidying
+
+```{r}
+# limiting data and taking out the special characters to be able to run sentiment analysis
+week13Tidy = week13 %>% 
+  select(id, manager, describeManager) %>% 
+  ungroup() %>%
+  mutate(describeManager = unlist(.$describeManager), 
+         describeManager = gsub("^c\\(|\\)$", "", .$describeManager)) 
+```
+
+## Sentiment score model 1
+
+```{r}
+# basic sentinent analysis to determine if there are more positve or more negative words
+employeeSentiment = week13Tidy %>%
+  unnest_tokens(tbl = ., output = word, input = describeManager) %>% 
+  group_by(id) %>% 
+  inner_join(get_sentiments("bing")) %>% 
+  count(sentiment) %>% 
+  spread(sentiment, n, fill = 0) %>% 
+  mutate(sentiment = positive - negative)
+
+employeeSentiment
+```
+
+## Sentiment score model 2
+
+```{r}
+# getting more complex by taking the mean number of positive versus negative for each manager then taking the difference
+managerSentiment = week13Tidy %>%
+  unnest_tokens(tbl = ., output = word, input = describeManager) %>% 
+  group_by(manager, id) %>% 
+  inner_join(get_sentiments("bing")) %>% 
+  count(sentiment) %>% 
+  spread(sentiment, n, fill = 0) %>% 
+  group_by(manager) %>% 
+  summarize(meanNegative = mean(negative), 
+            meanPositive = mean(positive), 
+            sentiment = meanPositive - meanNegative)
+
+managerSentiment
+```
+
+```{r}
+# validating the worst score has negative words and max score has positive scores
+worstManager = managerSentiment$manager[which.min(managerSentiment$sentiment)]
+
+bestManager = managerSentiment$manager[which.max(managerSentiment$sentiment)]
+
+week13$describeManager[week13$manager == worstManager][sample(1:5, 1)]
+```
+
+```{r}
+week13$describeManager[week13$manager == bestManager][sample(1:5, 1)]
+```
+
+## Sentiment score model 3
+
+```{r}
+# using a lexicon set for a sentiment score then creating a score for each of our managers off of that score
+rinkSent = sentiment(week13Tidy$describeManager, polarity_dt = lexicon::hash_sentiment_jockers_rinker)
+
+week13Tidy %>% 
+  mutate(element_id = 1:nrow(.)) %>% 
+  left_join(., rinkSent, by = "element_id") %>% 
+  group_by(manager) %>% 
+  summarize(meanSent = mean(sentiment)) %>%
+  arrange(-meanSent)
+```
+
